@@ -403,8 +403,8 @@ export default class SignaturePad extends SignatureEventTarget {
     const rect = this.canvas.getBoundingClientRect();
 
     return new Point(
-      x - rect.left,
-      y - rect.top,
+      ((x - rect.left) / rect.width) * this.canvas.width,
+      ((y - rect.top) / rect.height) * this.canvas.height,
       pressure,
       new Date().getTime(),
     );
@@ -474,7 +474,7 @@ export default class SignaturePad extends SignatureEventTarget {
     const widthDelta = curve.endWidth - curve.startWidth;
     // '2' is just an arbitrary number here. If only lenght is used, then
     // there are gaps between curve segments :/
-    const drawSteps = Math.ceil(curve.length()) * 2;
+    const drawSteps = Math.ceil(Math.log(curve.length())) * 20;
 
     ctx.beginPath();
     ctx.fillStyle = options.penColor;
