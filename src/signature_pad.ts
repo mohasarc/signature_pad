@@ -263,9 +263,11 @@ export default class SignaturePad extends SignatureEventTarget {
   };
 
   private _handlePointerStart = (event: PointerEvent): void => {
-    this._drawningStroke = true;
-    event.preventDefault();
-    this._strokeBegin(event);
+    if (event.button !== 2) {
+      this._drawningStroke = true;
+      event.preventDefault();
+      this._strokeBegin(event);
+    }
   };
 
   private _handlePointerMove = (event: PointerEvent): void => {

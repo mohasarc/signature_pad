@@ -191,9 +191,11 @@ class SignaturePad extends SignatureEventTarget {
             }
         };
         this._handlePointerStart = (event) => {
-            this._drawningStroke = true;
-            event.preventDefault();
-            this._strokeBegin(event);
+            if (event.button !== 2) {
+                this._drawningStroke = true;
+                event.preventDefault();
+                this._strokeBegin(event);
+            }
         };
         this._handlePointerMove = (event) => {
             if (this._drawningStroke) {
@@ -209,7 +211,6 @@ class SignaturePad extends SignatureEventTarget {
                 this._strokeEnd(event);
             }
         };
-        console.log('Hello from mohas local');
         this.velocityFilterWeight = options.velocityFilterWeight || 0.7;
         this.minWidth = options.minWidth || 0.5;
         this.maxWidth = options.maxWidth || 2.5;
@@ -395,7 +396,7 @@ class SignaturePad extends SignatureEventTarget {
     }
     _createPoint(x, y, pressure) {
         const rect = this.canvas.getBoundingClientRect();
-        return new Point((x - rect.left) / rect.width * this.canvas.width, (y - rect.top) / rect.height * this.canvas.height, pressure, new Date().getTime());
+        return new Point(((x - rect.left) / rect.width) * this.canvas.width, ((y - rect.top) / rect.height) * this.canvas.height, pressure, new Date().getTime());
     }
     _addPoint(point) {
         const { _lastPoints } = this;
@@ -428,7 +429,6 @@ class SignaturePad extends SignatureEventTarget {
     }
     _drawCurveSegment(x, y, width) {
         const ctx = this._ctx;
-        console.log('drawing sigment at: ', x, y);
         ctx.moveTo(x, y);
         ctx.arc(x, y, width, 0, 2 * Math.PI, false);
         this._isEmpty = false;
