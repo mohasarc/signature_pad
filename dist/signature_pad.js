@@ -436,7 +436,7 @@ class SignaturePad extends SignatureEventTarget {
     _drawCurve(curve, options) {
         const ctx = this._ctx;
         const widthDelta = curve.endWidth - curve.startWidth;
-        const drawSteps = Math.ceil(Math.log(curve.length())) * 20;
+        const drawSteps = Math.ceil(curve.length()) * 2;
         ctx.beginPath();
         ctx.fillStyle = options.penColor;
         for (let i = 0; i < drawSteps; i += 1) {
