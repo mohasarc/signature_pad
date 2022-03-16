@@ -278,11 +278,13 @@ export default class SignaturePad extends SignatureEventTarget {
   };
 
   private _handlePointerEnd = (event: PointerEvent): void => {
-    this._drawningStroke = false;
-    const wasCanvasTouched = event.target === this.canvas;
-    if (wasCanvasTouched) {
-      event.preventDefault();
-      this._strokeEnd(event);
+    if (event.button !== 2) {
+      this._drawningStroke = false;
+      const wasCanvasTouched = event.target === this.canvas;
+      if (wasCanvasTouched) {
+        event.preventDefault();
+        this._strokeEnd(event);
+      }
     }
   };
 

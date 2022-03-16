@@ -204,11 +204,13 @@ class SignaturePad extends SignatureEventTarget {
             }
         };
         this._handlePointerEnd = (event) => {
-            this._drawningStroke = false;
-            const wasCanvasTouched = event.target === this.canvas;
-            if (wasCanvasTouched) {
-                event.preventDefault();
-                this._strokeEnd(event);
+            if (event.button !== 2) {
+                this._drawningStroke = false;
+                const wasCanvasTouched = event.target === this.canvas;
+                if (wasCanvasTouched) {
+                    event.preventDefault();
+                    this._strokeEnd(event);
+                }
             }
         };
         this.velocityFilterWeight = options.velocityFilterWeight || 0.7;
