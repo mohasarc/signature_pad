@@ -1,3 +1,102 @@
+## [4.1.5](https://github.com/szimek/signature_pad/compare/v4.1.4...v4.1.5) (2023-02-22)
+
+
+### Bug Fixes
+
+* initialize private properties. ([#700](https://github.com/szimek/signature_pad/issues/700)) ([fea7ec6](https://github.com/szimek/signature_pad/commit/fea7ec653abe0850a56d796571b850dfa65b05df)), closes [#699](https://github.com/szimek/signature_pad/issues/699)
+
+## [4.1.4](https://github.com/szimek/signature_pad/compare/v4.1.3...v4.1.4) (2022-11-08)
+
+
+### Bug Fixes
+
+* undo fix zoom ([#674](https://github.com/szimek/signature_pad/issues/674)) ([7d67010](https://github.com/szimek/signature_pad/commit/7d67010ca90344d6e340ad88d831e905bac0d519))
+
+## [4.1.3](https://github.com/szimek/signature_pad/compare/v4.1.2...v4.1.3) (2022-11-01)
+
+
+### Bug Fixes
+
+* fix version in built files ([2e0ec92](https://github.com/szimek/signature_pad/commit/2e0ec92400e86f272f643a3ce4e2a51398426e60))
+
+## [4.1.2](https://github.com/szimek/signature_pad/compare/v4.1.1...v4.1.2) (2022-11-01)
+
+
+### Bug Fixes
+
+* fix zoom ([#673](https://github.com/szimek/signature_pad/issues/673)) ([4a15227](https://github.com/szimek/signature_pad/commit/4a15227bf80ebdb1509dfc1f8fffe920d1616968))
+
+## [4.1.1](https://github.com/szimek/signature_pad/compare/v4.1.0...v4.1.1) (2022-10-31)
+
+
+### Bug Fixes
+
+* Fix empty `toDataURL()` in TypeScript ([#672](https://github.com/szimek/signature_pad/issues/672)) ([0ce27f0](https://github.com/szimek/signature_pad/commit/0ce27f0124b4694535e122d60334eb30cf789038))
+
+# [4.1.0](https://github.com/szimek/signature_pad/compare/v4.0.10...v4.1.0) (2022-10-30)
+
+
+### Features
+
+* add toSVG method ([#668](https://github.com/szimek/signature_pad/issues/668)) ([c341107](https://github.com/szimek/signature_pad/commit/c34110752be5925315b8de71df3b896a09a1fe64))
+
+## [4.0.10](https://github.com/szimek/signature_pad/compare/v4.0.9...v4.0.10) (2022-10-12)
+
+
+### Bug Fixes
+
+* update deps ([#660](https://github.com/szimek/signature_pad/issues/660)) ([0ae1ed2](https://github.com/szimek/signature_pad/commit/0ae1ed27b2b21b222a1844c7f87a9581dc756ae1))
+
+## [4.0.9](https://github.com/szimek/signature_pad/compare/v4.0.8...v4.0.9) (2022-09-24)
+
+
+### Bug Fixes
+
+* add velocityFilterWeight to point group options ([ed6c139](https://github.com/szimek/signature_pad/commit/ed6c1393cea08c6f19f739c4bfee79154646c8d6))
+* use point group options in calculations ([7495eae](https://github.com/szimek/signature_pad/commit/7495eae43d83a6711ccb6b80f7f7e5831a201e82))
+
+## [4.0.8](https://github.com/szimek/signature_pad/compare/v4.0.7...v4.0.8) (2022-09-13)
+
+
+### Bug Fixes
+
+* fix svg image size ([#650](https://github.com/szimek/signature_pad/issues/650)) ([27cd493](https://github.com/szimek/signature_pad/commit/27cd4937f6373e1532352a7b0016f2735ff66160))
+
+## [4.0.7](https://github.com/szimek/signature_pad/compare/v4.0.6...v4.0.7) (2022-07-21)
+
+
+### Bug Fixes
+
+* use canvas.ownerDocument in mouse events in case it is different from window.document ([#637](https://github.com/szimek/signature_pad/issues/637)) ([636a503](https://github.com/szimek/signature_pad/commit/636a503d7e850a3e3d7489396f3e116c0e11aeb1))
+
+## [4.0.6](https://github.com/szimek/signature_pad/compare/v4.0.5...v4.0.6) (2022-07-18)
+
+
+### Bug Fixes
+
+* check for event.cancelable in touch events ([#634](https://github.com/szimek/signature_pad/issues/634)) ([21ab3c7](https://github.com/szimek/signature_pad/commit/21ab3c7f3d8c545a3ad4d9c92682000628019b08))
+
+## [4.0.5](https://github.com/szimek/signature_pad/compare/v4.0.4...v4.0.5) (2022-06-06)
+
+
+### Bug Fixes
+
+* update deps including yarn ([#625](https://github.com/szimek/signature_pad/issues/625)) ([1ad4e30](https://github.com/szimek/signature_pad/commit/1ad4e30f9ecccd1ddb6f9afc11360087a8b0fe22))
+
+## [4.0.4](https://github.com/szimek/signature_pad/compare/v4.0.3...v4.0.4) (2022-04-03)
+
+
+### Bug Fixes
+
+* clone data in fromData ([#602](https://github.com/szimek/signature_pad/issues/602)) ([e5057c5](https://github.com/szimek/signature_pad/commit/e5057c55e9fdcfd69a1225569374e60f882cfb51))
+
+## [4.0.3](https://github.com/szimek/signature_pad/compare/v4.0.2...v4.0.3) (2022-03-18)
+
+
+### Bug Fixes
+
+* emit endStroke on pointerup outside of canvas ([#604](https://github.com/szimek/signature_pad/issues/604)) ([29b80dd](https://github.com/szimek/signature_pad/commit/29b80ddc7adcc923b4939e782a413ffc64ba3f5b))
+
 ## [4.0.2](https://github.com/szimek/signature_pad/compare/v4.0.1...v4.0.2) (2022-01-21)
 
 
@@ -26,6 +125,7 @@
 - Capture pressure when signing ([#566](https://github.com/szimek/signature_pad/pull/566))
 
 #### Breaking changes
+- `dotSize` only accepts a `number` now and no longer accepts a function ([#571](https://github.com/szimek/signature_pad/pull/571))
 - SignaturePad is an event emitter. ([#567](https://github.com/szimek/signature_pad/pull/567)) `onBegin` and `onEnd` options have been moved to events.
 
   The following events were added:

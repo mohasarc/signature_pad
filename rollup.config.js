@@ -2,15 +2,18 @@ const typescript = require('@rollup/plugin-typescript');
 const { terser } = require('rollup-plugin-terser');
 const pkg = require('./package.json');
 
+const version = process.env.SEMANTIC_RELEASE_NEXT_VERSION || pkg.version;
+console.log(`Building Version: ${version}`);
+
 const banner =
   '/*!\n' +
-  ` * Signature Pad v${pkg.version} | ${pkg.homepage}\n` +
+  ` * Signature Pad v${version} | ${pkg.homepage}\n` +
   ` * (c) ${new Date().getFullYear()} ${
     pkg.author.name
   } | Released under the MIT license\n` +
   ' */\n';
 
-export default [
+module.exports = [
   {
     // UMD unminified
     input: 'src/signature_pad.ts',

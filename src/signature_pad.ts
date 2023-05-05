@@ -26,16 +26,20 @@ export interface FromDataOptions {
   clear?: boolean;
 }
 
+export interface ToSVGOptions {
+  includeBackgroundColor?: boolean;
+}
+
 export interface PointGroupOptions {
   dotSize: number;
   minWidth: number;
   maxWidth: number;
   penColor: string;
+  velocityFilterWeight: number;
 }
 
 export interface Options extends Partial<PointGroupOptions> {
   minDistance?: number;
-  velocityFilterWeight?: number;
   backgroundColor?: string;
   throttle?: number;
 }
@@ -58,12 +62,12 @@ export default class SignaturePad extends SignatureEventTarget {
   // Private stuff
   /* tslint:disable: variable-name */
   private _ctx: CanvasRenderingContext2D;
-  private _drawningStroke: boolean;
-  private _isEmpty: boolean;
-  private _lastPoints: Point[]; // Stores up to 4 most recent points; used to generate a new curve
-  private _data: PointGroup[]; // Stores all points in groups (one group per line or dot)
-  private _lastVelocity: number;
-  private _lastWidth: number;
+  private _drawningStroke = false;
+  private _isEmpty = true;
+  private _lastPoints: Point[] = []; // Stores up to 4 most recent points; used to generate a new curve
+  private _data: PointGroup[] = []; // Stores all points in groups (one group per line or dot)
+  private _lastVelocity = 0;
+  private _lastWidth = 0;
   private _strokeMoveUpdate: (event: SignatureEvent) => void;
   /* tslint:enable: variable-name */
 
@@ -100,7 +104,7 @@ export default class SignaturePad extends SignatureEventTarget {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     this._data = [];
-    this._reset();
+    this._reset(this._getPointGroupOptions());
     this._isEmpty = true;
   }
 
@@ -122,7 +126,7 @@ export default class SignaturePad extends SignatureEventTarget {
       const xOffset = options.xOffset || 0;
       const yOffset = options.yOffset || 0;
 
-      this._reset();
+      this._reset(this._getPointGroupOptions());
 
       image.onload = (): void => {
         this._ctx.drawImage(image, xOffset, yOffset, width, height);
@@ -138,11 +142,27 @@ export default class SignaturePad extends SignatureEventTarget {
     });
   }
 
-  public toDataURL(type = 'image/png', encoderOptions?: number): string {
+  public toDataURL(
+    type: 'image/svg+xml',
+    encoderOptions?: ToSVGOptions,
+  ): string;
+  public toDataURL(type?: string, encoderOptions?: number): string;
+  public toDataURL(
+    type = 'image/png',
+    encoderOptions?: number | ToSVGOptions | undefined,
+  ): string {
     switch (type) {
       case 'image/svg+xml':
-        return this._toSVG();
+        if (typeof encoderOptions !== 'object') {
+          encoderOptions = undefined;
+        }
+        return `data:image/svg+xml;base64,${btoa(
+          this.toSVG(encoderOptions as ToSVGOptions),
+        )}`;
       default:
+        if (typeof encoderOptions !== 'number') {
+          encoderOptions = undefined;
+        }
         return this.canvas.toDataURL(type, encoderOptions);
     }
   }
@@ -177,11 +197,17 @@ export default class SignaturePad extends SignatureEventTarget {
 
     this.canvas.removeEventListener('pointerdown', this._handlePointerStart);
     this.canvas.removeEventListener('pointermove', this._handlePointerMove);
-    document.removeEventListener('pointerup', this._handlePointerEnd);
+    this.canvas.ownerDocument.removeEventListener(
+      'pointerup',
+      this._handlePointerEnd,
+    );
 
     this.canvas.removeEventListener('mousedown', this._handleMouseDown);
     this.canvas.removeEventListener('mousemove', this._handleMouseMove);
-    document.removeEventListener('mouseup', this._handleMouseUp);
+    this.canvas.ownerDocument.removeEventListener(
+      'mouseup',
+      this._handleMouseUp,
+    );
 
     this.canvas.removeEventListener('touchstart', this._handleTouchStart);
     this.canvas.removeEventListener('touchmove', this._handleTouchMove);
@@ -206,7 +232,7 @@ export default class SignaturePad extends SignatureEventTarget {
       this._drawDot.bind(this),
     );
 
-    this._data = clear ? pointGroups : this._data.concat(pointGroups);
+    this._data = this._data.concat(pointGroups);
   }
 
   public toData(): PointGroup[] {
@@ -236,7 +262,9 @@ export default class SignaturePad extends SignatureEventTarget {
 
   private _handleTouchStart = (event: TouchEvent): void => {
     // Prevent scrolling.
-    event.preventDefault();
+    if (event.cancelable) {
+      event.preventDefault();
+    }
 
     if (event.targetTouches.length === 1) {
       const touch = event.changedTouches[0];
@@ -246,7 +274,9 @@ export default class SignaturePad extends SignatureEventTarget {
 
   private _handleTouchMove = (event: TouchEvent): void => {
     // Prevent scrolling.
-    event.preventDefault();
+    if (event.cancelable) {
+      event.preventDefault();
+    }
 
     const touch = event.targetTouches[0];
     this._strokeMoveUpdate(touch);
@@ -255,8 +285,9 @@ export default class SignaturePad extends SignatureEventTarget {
   private _handleTouchEnd = (event: TouchEvent): void => {
     const wasCanvasTouched = event.target === this.canvas;
     if (wasCanvasTouched) {
-      event.preventDefault();
-
+      if (event.cancelable) {
+        event.preventDefault();
+      }
       const touch = event.changedTouches[0];
       this._strokeEnd(touch);
     }
@@ -276,28 +307,39 @@ export default class SignaturePad extends SignatureEventTarget {
   };
 
   private _handlePointerEnd = (event: PointerEvent): void => {
-    this._drawningStroke = false;
-    const wasCanvasTouched = event.target === this.canvas;
-    if (wasCanvasTouched) {
+    if (this._drawningStroke) {
       event.preventDefault();
+      this._drawningStroke = false;
       this._strokeEnd(event);
     }
   };
+
+  private _getPointGroupOptions(group?: PointGroup) {
+    return {
+      penColor: group && 'penColor' in group ? group.penColor : this.penColor,
+      dotSize: group && 'dotSize' in group ? group.dotSize : this.dotSize,
+      minWidth: group && 'minWidth' in group ? group.minWidth : this.minWidth,
+      maxWidth: group && 'maxWidth' in group ? group.maxWidth : this.maxWidth,
+      velocityFilterWeight:
+        group && 'velocityFilterWeight' in group
+          ? group.velocityFilterWeight
+          : this.velocityFilterWeight,
+    };
+  }
 
   // Private methods
   private _strokeBegin(event: SignatureEvent): void {
     this.dispatchEvent(new CustomEvent('beginStroke', { detail: event }));
 
+    const pointGroupOptions = this._getPointGroupOptions();
+
     const newPointGroup: PointGroup = {
-      dotSize: this.dotSize,
-      minWidth: this.minWidth,
-      maxWidth: this.maxWidth,
-      penColor: this.penColor,
+      ...pointGroupOptions,
       points: [],
     };
 
     this._data.push(newPointGroup);
-    this._reset();
+    this._reset(pointGroupOptions);
     this._strokeUpdate(event);
   }
 
@@ -330,26 +372,16 @@ export default class SignaturePad extends SignatureEventTarget {
     const isLastPointTooClose = lastPoint
       ? point.distanceTo(lastPoint) <= this.minDistance
       : false;
-    const { penColor, dotSize, minWidth, maxWidth } = lastPointGroup;
+    const pointGroupOptions = this._getPointGroupOptions(lastPointGroup);
 
     // Skip this point if it's too close to the previous one
     if (!lastPoint || !(lastPoint && isLastPointTooClose)) {
-      const curve = this._addPoint(point);
+      const curve = this._addPoint(point, pointGroupOptions);
 
       if (!lastPoint) {
-        this._drawDot(point, {
-          penColor,
-          dotSize,
-          minWidth,
-          maxWidth,
-        });
+        this._drawDot(point, pointGroupOptions);
       } else if (curve) {
-        this._drawCurve(curve, {
-          penColor,
-          dotSize,
-          minWidth,
-          maxWidth,
-        });
+        this._drawCurve(curve, pointGroupOptions);
       }
 
       lastPoints.push({
@@ -374,7 +406,10 @@ export default class SignaturePad extends SignatureEventTarget {
 
     this.canvas.addEventListener('pointerdown', this._handlePointerStart);
     this.canvas.addEventListener('pointermove', this._handlePointerMove);
-    document.addEventListener('pointerup', this._handlePointerEnd);
+    this.canvas.ownerDocument.addEventListener(
+      'pointerup',
+      this._handlePointerEnd,
+    );
   }
 
   private _handleMouseEvents(): void {
@@ -382,7 +417,7 @@ export default class SignaturePad extends SignatureEventTarget {
 
     this.canvas.addEventListener('mousedown', this._handleMouseDown);
     this.canvas.addEventListener('mousemove', this._handleMouseMove);
-    document.addEventListener('mouseup', this._handleMouseUp);
+    this.canvas.ownerDocument.addEventListener('mouseup', this._handleMouseUp);
   }
 
   private _handleTouchEvents(): void {
@@ -392,11 +427,11 @@ export default class SignaturePad extends SignatureEventTarget {
   }
 
   // Called when a new line is started
-  private _reset(): void {
+  private _reset(options: PointGroupOptions): void {
     this._lastPoints = [];
     this._lastVelocity = 0;
-    this._lastWidth = (this.minWidth + this.maxWidth) / 2;
-    this._ctx.fillStyle = this.penColor;
+    this._lastWidth = (options.minWidth + options.maxWidth) / 2;
+    this._ctx.fillStyle = options.penColor;
   }
 
   private _createPoint(x: number, y: number, pressure: number): Point {
@@ -411,7 +446,7 @@ export default class SignaturePad extends SignatureEventTarget {
   }
 
   // Add point to _lastPoints array and generate a new curve if there are enough points (i.e. 3)
-  private _addPoint(point: Point): Bezier | null {
+  private _addPoint(point: Point, options: PointGroupOptions): Bezier | null {
     const { _lastPoints } = this;
 
     _lastPoints.push(point);
@@ -424,7 +459,11 @@ export default class SignaturePad extends SignatureEventTarget {
       }
 
       // _points array will always have 4 points here.
-      const widths = this._calculateCurveWidths(_lastPoints[1], _lastPoints[2]);
+      const widths = this._calculateCurveWidths(
+        _lastPoints[1],
+        _lastPoints[2],
+        options,
+      );
       const curve = Bezier.fromPoints(_lastPoints, widths);
 
       // Remove the first element from the list, so that there are no more than 4 points at any time.
@@ -439,12 +478,13 @@ export default class SignaturePad extends SignatureEventTarget {
   private _calculateCurveWidths(
     startPoint: Point,
     endPoint: Point,
+    options: PointGroupOptions,
   ): { start: number; end: number } {
     const velocity =
-      this.velocityFilterWeight * endPoint.velocityFrom(startPoint) +
-      (1 - this.velocityFilterWeight) * this._lastVelocity;
+      options.velocityFilterWeight * endPoint.velocityFrom(startPoint) +
+      (1 - options.velocityFilterWeight) * this._lastVelocity;
 
-    const newWidth = this._strokeWidth(velocity);
+    const newWidth = this._strokeWidth(velocity, options);
 
     const widths = {
       end: newWidth,
@@ -457,8 +497,8 @@ export default class SignaturePad extends SignatureEventTarget {
     return widths;
   }
 
-  private _strokeWidth(velocity: number): number {
-    return Math.max(this.maxWidth / (velocity + 1), this.minWidth);
+  private _strokeWidth(velocity: number, options: PointGroupOptions): number {
+    return Math.max(options.maxWidth / (velocity + 1), options.minWidth);
   }
 
   private _drawCurveSegment(x: number, y: number, width: number): void {
@@ -472,7 +512,7 @@ export default class SignaturePad extends SignatureEventTarget {
   private _drawCurve(curve: Bezier, options: PointGroupOptions): void {
     const ctx = this._ctx;
     const widthDelta = curve.endWidth - curve.startWidth;
-    // '2' is just an arbitrary number here. If only lenght is used, then
+    // '2' is just an arbitrary number here. If only length is used, then
     // there are gaps between curve segments :/
     const drawSteps = Math.ceil(curve.length()) * 2;
 
@@ -529,7 +569,8 @@ export default class SignaturePad extends SignatureEventTarget {
     drawDot: SignaturePad['_drawDot'],
   ): void {
     for (const group of pointGroups) {
-      const { penColor, dotSize, minWidth, maxWidth, points } = group;
+      const { points } = group;
+      const pointGroupOptions = this._getPointGroupOptions(group);
 
       if (points.length > 1) {
         for (let j = 0; j < points.length; j += 1) {
@@ -541,39 +582,25 @@ export default class SignaturePad extends SignatureEventTarget {
             basicPoint.time,
           );
 
-          // All points in the group have the same color, so it's enough to set
-          // penColor just at the beginning.
-          this.penColor = penColor;
-
           if (j === 0) {
-            this._reset();
+            this._reset(pointGroupOptions);
           }
 
-          const curve = this._addPoint(point);
+          const curve = this._addPoint(point, pointGroupOptions);
 
           if (curve) {
-            drawCurve(curve, {
-              penColor,
-              dotSize,
-              minWidth,
-              maxWidth,
-            });
+            drawCurve(curve, pointGroupOptions);
           }
         }
       } else {
-        this._reset();
+        this._reset(pointGroupOptions);
 
-        drawDot(points[0], {
-          penColor,
-          dotSize,
-          minWidth,
-          maxWidth,
-        });
+        drawDot(points[0], pointGroupOptions);
       }
     }
   }
 
-  private _toSVG(): string {
+  public toSVG({ includeBackgroundColor = false }: ToSVGOptions = {}): string {
     const pointGroups = this._data;
     const ratio = Math.max(window.devicePixelRatio || 1, 1);
     const minX = 0;
@@ -582,8 +609,20 @@ export default class SignaturePad extends SignatureEventTarget {
     const maxY = this.canvas.height / ratio;
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
 
-    svg.setAttribute('width', this.canvas.width.toString());
-    svg.setAttribute('height', this.canvas.height.toString());
+    svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    svg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+    svg.setAttribute('viewBox', `${minX} ${minY} ${maxX} ${maxY}`);
+    svg.setAttribute('width', maxX.toString());
+    svg.setAttribute('height', maxY.toString());
+
+    if (includeBackgroundColor && this.backgroundColor) {
+      const rect = document.createElement('rect');
+      rect.setAttribute('width', '100%');
+      rect.setAttribute('height', '100%');
+      rect.setAttribute('fill', this.backgroundColor);
+
+      svg.appendChild(rect);
+    }
 
     this._fromData(
       pointGroups,
@@ -631,34 +670,6 @@ export default class SignaturePad extends SignatureEventTarget {
       },
     );
 
-    const prefix = 'data:image/svg+xml;base64,';
-    const header =
-      '<svg' +
-      ' xmlns="http://www.w3.org/2000/svg"' +
-      ' xmlns:xlink="http://www.w3.org/1999/xlink"' +
-      ` viewBox="${minX} ${minY} ${this.canvas.width} ${this.canvas.height}"` +
-      ` width="${maxX}"` +
-      ` height="${maxY}"` +
-      '>';
-    let body = svg.innerHTML;
-
-    // IE hack for missing innerHTML property on SVGElement
-    if (body === undefined) {
-      const dummy = document.createElement('dummy');
-      const nodes = svg.childNodes;
-      dummy.innerHTML = '';
-
-      // tslint:disable-next-line: prefer-for-of
-      for (let i = 0; i < nodes.length; i += 1) {
-        dummy.appendChild(nodes[i].cloneNode(true));
-      }
-
-      body = dummy.innerHTML;
-    }
-
-    const footer = '</svg>';
-    const data = header + body + footer;
-
-    return prefix + btoa(data);
+    return svg.outerHTML;
   }
 }
