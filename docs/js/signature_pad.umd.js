@@ -1,6 +1,6 @@
 /*!
- * Signature Pad v4.0.2 | https://github.com/szimek/signature_pad
- * (c) 2022 Szymon Nowak | Released under the MIT license
+ * Signature Pad v4.1.5 | https://github.com/szimek/signature_pad
+ * (c) 2023 Szymon Nowak | Released under the MIT license
  */
 
 (function (global, factory) {
@@ -159,6 +159,12 @@
         constructor(canvas, options = {}) {
             super();
             this.canvas = canvas;
+            this._drawningStroke = false;
+            this._isEmpty = true;
+            this._lastPoints = [];
+            this._data = [];
+            this._lastVelocity = 0;
+            this._lastWidth = 0;
             this._handleMouseDown = (event) => {
                 if (event.buttons === 1) {
                     this._drawningStroke = true;
@@ -177,21 +183,27 @@
                 }
             };
             this._handleTouchStart = (event) => {
-                event.preventDefault();
+                if (event.cancelable) {
+                    event.preventDefault();
+                }
                 if (event.targetTouches.length === 1) {
                     const touch = event.changedTouches[0];
                     this._strokeBegin(touch);
                 }
             };
             this._handleTouchMove = (event) => {
-                event.preventDefault();
+                if (event.cancelable) {
+                    event.preventDefault();
+                }
                 const touch = event.targetTouches[0];
                 this._strokeMoveUpdate(touch);
             };
             this._handleTouchEnd = (event) => {
                 const wasCanvasTouched = event.target === this.canvas;
                 if (wasCanvasTouched) {
-                    event.preventDefault();
+                    if (event.cancelable) {
+                        event.preventDefault();
+                    }
                     const touch = event.changedTouches[0];
                     this._strokeEnd(touch);
                 }
@@ -240,7 +252,7 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             this._data = [];
-            this._reset();
+            this._reset(this._getPointGroupOptions());
             this._isEmpty = true;
         }
         fromDataURL(dataUrl, options = {}) {
@@ -251,7 +263,7 @@
                 const height = options.height || this.canvas.height / ratio;
                 const xOffset = options.xOffset || 0;
                 const yOffset = options.yOffset || 0;
-                this._reset();
+                this._reset(this._getPointGroupOptions());
                 image.onload = () => {
                     this._ctx.drawImage(image, xOffset, yOffset, width, height);
                     resolve();
@@ -267,8 +279,14 @@
         toDataURL(type = 'image/png', encoderOptions) {
             switch (type) {
                 case 'image/svg+xml':
-                    return this._toSVG();
+                    if (typeof encoderOptions !== 'object') {
+                        encoderOptions = undefined;
+                    }
+                    return `data:image/svg+xml;base64,${btoa(this.toSVG(encoderOptions))}`;
                 default:
+                    if (typeof encoderOptions !== 'number') {
+                        encoderOptions = undefined;
+                    }
                     return this.canvas.toDataURL(type, encoderOptions);
             }
         }
@@ -293,10 +311,10 @@
             this.canvas.style.userSelect = 'auto';
             this.canvas.removeEventListener('pointerdown', this._handlePointerStart);
             this.canvas.removeEventListener('pointermove', this._handlePointerMove);
-            document.removeEventListener('pointerup', this._handlePointerEnd);
+            this.canvas.ownerDocument.removeEventListener('pointerup', this._handlePointerEnd);
             this.canvas.removeEventListener('mousedown', this._handleMouseDown);
             this.canvas.removeEventListener('mousemove', this._handleMouseMove);
-            document.removeEventListener('mouseup', this._handleMouseUp);
+            this.canvas.ownerDocument.removeEventListener('mouseup', this._handleMouseUp);
             this.canvas.removeEventListener('touchstart', this._handleTouchStart);
             this.canvas.removeEventListener('touchmove', this._handleTouchMove);
             this.canvas.removeEventListener('touchend', this._handleTouchEnd);
@@ -309,22 +327,28 @@
                 this.clear();
             }
             this._fromData(pointGroups, this._drawCurve.bind(this), this._drawDot.bind(this));
-            this._data = clear ? pointGroups : this._data.concat(pointGroups);
+            this._data = this._data.concat(pointGroups);
         }
         toData() {
             return this._data;
         }
+        _getPointGroupOptions(group) {
+            return {
+                penColor: group && 'penColor' in group ? group.penColor : this.penColor,
+                dotSize: group && 'dotSize' in group ? group.dotSize : this.dotSize,
+                minWidth: group && 'minWidth' in group ? group.minWidth : this.minWidth,
+                maxWidth: group && 'maxWidth' in group ? group.maxWidth : this.maxWidth,
+                velocityFilterWeight: group && 'velocityFilterWeight' in group
+                    ? group.velocityFilterWeight
+                    : this.velocityFilterWeight,
+            };
+        }
         _strokeBegin(event) {
             this.dispatchEvent(new CustomEvent('beginStroke', { detail: event }));
-            const newPointGroup = {
-                dotSize: this.dotSize,
-                minWidth: this.minWidth,
-                maxWidth: this.maxWidth,
-                penColor: this.penColor,
-                points: [],
-            };
+            const pointGroupOptions = this._getPointGroupOptions();
+            const newPointGroup = Object.assign(Object.assign({}, pointGroupOptions), { points: [] });
             this._data.push(newPointGroup);
-            this._reset();
+            this._reset(pointGroupOptions);
             this._strokeUpdate(event);
         }
         _strokeUpdate(event) {
@@ -347,24 +371,14 @@
             const isLastPointTooClose = lastPoint
                 ? point.distanceTo(lastPoint) <= this.minDistance
                 : false;
-            const { penColor, dotSize, minWidth, maxWidth } = lastPointGroup;
+            const pointGroupOptions = this._getPointGroupOptions(lastPointGroup);
             if (!lastPoint || !(lastPoint && isLastPointTooClose)) {
-                const curve = this._addPoint(point);
+                const curve = this._addPoint(point, pointGroupOptions);
                 if (!lastPoint) {
-                    this._drawDot(point, {
-                        penColor,
-                        dotSize,
-                        minWidth,
-                        maxWidth,
-                    });
+                    this._drawDot(point, pointGroupOptions);
                 }
                 else if (curve) {
-                    this._drawCurve(curve, {
-                        penColor,
-                        dotSize,
-                        minWidth,
-                        maxWidth,
-                    });
+                    this._drawCurve(curve, pointGroupOptions);
                 }
                 lastPoints.push({
                     time: point.time,
@@ -383,47 +397,47 @@
             this._drawningStroke = false;
             this.canvas.addEventListener('pointerdown', this._handlePointerStart);
             this.canvas.addEventListener('pointermove', this._handlePointerMove);
-            document.addEventListener('pointerup', this._handlePointerEnd);
+            this.canvas.ownerDocument.addEventListener('pointerup', this._handlePointerEnd);
         }
         _handleMouseEvents() {
             this._drawningStroke = false;
             this.canvas.addEventListener('mousedown', this._handleMouseDown);
             this.canvas.addEventListener('mousemove', this._handleMouseMove);
-            document.addEventListener('mouseup', this._handleMouseUp);
+            this.canvas.ownerDocument.addEventListener('mouseup', this._handleMouseUp);
         }
         _handleTouchEvents() {
             this.canvas.addEventListener('touchstart', this._handleTouchStart);
             this.canvas.addEventListener('touchmove', this._handleTouchMove);
             this.canvas.addEventListener('touchend', this._handleTouchEnd);
         }
-        _reset() {
+        _reset(options) {
             this._lastPoints = [];
             this._lastVelocity = 0;
-            this._lastWidth = (this.minWidth + this.maxWidth) / 2;
-            this._ctx.fillStyle = this.penColor;
+            this._lastWidth = (options.minWidth + options.maxWidth) / 2;
+            this._ctx.fillStyle = options.penColor;
         }
         _createPoint(x, y, pressure) {
             const rect = this.canvas.getBoundingClientRect();
             return new Point(((x - rect.left) / rect.width) * this.canvas.width, ((y - rect.top) / rect.height) * this.canvas.height, pressure, new Date().getTime());
         }
-        _addPoint(point) {
+        _addPoint(point, options) {
             const { _lastPoints } = this;
             _lastPoints.push(point);
             if (_lastPoints.length > 2) {
                 if (_lastPoints.length === 3) {
                     _lastPoints.unshift(_lastPoints[0]);
                 }
-                const widths = this._calculateCurveWidths(_lastPoints[1], _lastPoints[2]);
+                const widths = this._calculateCurveWidths(_lastPoints[1], _lastPoints[2], options);
                 const curve = Bezier.fromPoints(_lastPoints, widths);
                 _lastPoints.shift();
                 return curve;
             }
             return null;
         }
-        _calculateCurveWidths(startPoint, endPoint) {
-            const velocity = this.velocityFilterWeight * endPoint.velocityFrom(startPoint) +
-                (1 - this.velocityFilterWeight) * this._lastVelocity;
-            const newWidth = this._strokeWidth(velocity);
+        _calculateCurveWidths(startPoint, endPoint, options) {
+            const velocity = options.velocityFilterWeight * endPoint.velocityFrom(startPoint) +
+                (1 - options.velocityFilterWeight) * this._lastVelocity;
+            const newWidth = this._strokeWidth(velocity, options);
             const widths = {
                 end: newWidth,
                 start: this._lastWidth,
@@ -432,8 +446,8 @@
             this._lastWidth = newWidth;
             return widths;
         }
-        _strokeWidth(velocity) {
-            return Math.max(this.maxWidth / (velocity + 1), this.minWidth);
+        _strokeWidth(velocity, options) {
+            return Math.max(options.maxWidth / (velocity + 1), options.minWidth);
         }
         _drawCurveSegment(x, y, width) {
             const ctx = this._ctx;
@@ -481,38 +495,28 @@
         }
         _fromData(pointGroups, drawCurve, drawDot) {
             for (const group of pointGroups) {
-                const { penColor, dotSize, minWidth, maxWidth, points } = group;
+                const { points } = group;
+                const pointGroupOptions = this._getPointGroupOptions(group);
                 if (points.length > 1) {
                     for (let j = 0; j < points.length; j += 1) {
                         const basicPoint = points[j];
                         const point = new Point(basicPoint.x, basicPoint.y, basicPoint.pressure, basicPoint.time);
-                        this.penColor = penColor;
                         if (j === 0) {
-                            this._reset();
+                            this._reset(pointGroupOptions);
                         }
-                        const curve = this._addPoint(point);
+                        const curve = this._addPoint(point, pointGroupOptions);
                         if (curve) {
-                            drawCurve(curve, {
-                                penColor,
-                                dotSize,
-                                minWidth,
-                                maxWidth,
-                            });
+                            drawCurve(curve, pointGroupOptions);
                         }
                     }
                 }
                 else {
-                    this._reset();
-                    drawDot(points[0], {
-                        penColor,
-                        dotSize,
-                        minWidth,
-                        maxWidth,
-                    });
+                    this._reset(pointGroupOptions);
+                    drawDot(points[0], pointGroupOptions);
                 }
             }
         }
-        _toSVG() {
+        toSVG({ includeBackgroundColor = false } = {}) {
             const pointGroups = this._data;
             const ratio = Math.max(window.devicePixelRatio || 1, 1);
             const minX = 0;
@@ -520,8 +524,18 @@
             const maxX = this.canvas.width / ratio;
             const maxY = this.canvas.height / ratio;
             const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            svg.setAttribute('width', this.canvas.width.toString());
-            svg.setAttribute('height', this.canvas.height.toString());
+            svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+            svg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+            svg.setAttribute('viewBox', `${minX} ${minY} ${maxX} ${maxY}`);
+            svg.setAttribute('width', maxX.toString());
+            svg.setAttribute('height', maxY.toString());
+            if (includeBackgroundColor && this.backgroundColor) {
+                const rect = document.createElement('rect');
+                rect.setAttribute('width', '100%');
+                rect.setAttribute('height', '100%');
+                rect.setAttribute('fill', this.backgroundColor);
+                svg.appendChild(rect);
+            }
             this._fromData(pointGroups, (curve, { penColor }) => {
                 const path = document.createElement('path');
                 if (!isNaN(curve.control1.x) &&
@@ -548,27 +562,7 @@
                 circle.setAttribute('fill', penColor);
                 svg.appendChild(circle);
             });
-            const prefix = 'data:image/svg+xml;base64,';
-            const header = '<svg' +
-                ' xmlns="http://www.w3.org/2000/svg"' +
-                ' xmlns:xlink="http://www.w3.org/1999/xlink"' +
-                ` viewBox="${minX} ${minY} ${this.canvas.width} ${this.canvas.height}"` +
-                ` width="${maxX}"` +
-                ` height="${maxY}"` +
-                '>';
-            let body = svg.innerHTML;
-            if (body === undefined) {
-                const dummy = document.createElement('dummy');
-                const nodes = svg.childNodes;
-                dummy.innerHTML = '';
-                for (let i = 0; i < nodes.length; i += 1) {
-                    dummy.appendChild(nodes[i].cloneNode(true));
-                }
-                body = dummy.innerHTML;
-            }
-            const footer = '</svg>';
-            const data = header + body + footer;
-            return prefix + btoa(data);
+            return svg.outerHTML;
         }
     }
 
